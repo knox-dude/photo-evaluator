@@ -8,6 +8,7 @@ from facenet_pytorch import MTCNN
 import requests
 from dotenv import load_dotenv
 import os
+import base64
 
 @dataclass
 class PhotoScore:
@@ -78,7 +79,7 @@ class PhotoScoringSystem:
             
         return np.mean(expression_scores) if expression_scores else 0.0
 
-    def get_llm_analysis(self, image, api_key):
+    def get_llm_analysis(self, image_url, api_key):
         """
         Use GPT-4 Vision or similar to get qualitative analysis
         """
@@ -98,19 +99,36 @@ class PhotoScoringSystem:
             project=os.environ.get("OPENAI_PROJECT_ID"),
             api_key=api_key
         )
+        response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                "type": "image_url",
+                "image_url": {
+                    "url": image_url,
+                },
+                },
+            ],
+            }
+        ],
+        )
+
+        print(response)
+        return response
         
-        # Convert image to base64
-        # Make API call to vision model
-        # Parse response
         
         # Simulated response structure
-        return {
-            'technical': 8.5,
-            'composition': 7.5,
-            'expression': 9.0,
-            'overall': 8.3,
-            'explanation': "Strong technical quality with good lighting..."
-        }
+        # return {
+        #     'technical': 8.5,
+        #     'composition': 7.5,
+        #     'expression': 9.0,
+        #     'overall': 8.3,
+        #     'explanation': "Strong technical quality with good lighting..."
+        # }
 
     def score_photo(self, image_path, api_key):
         """
@@ -159,6 +177,11 @@ class PhotoScoringSystem:
         
         return min(score / 1000, 1.0)
 
+    # Function to encode the image
+    def _base64_encode(self, image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+
     def _analyze_single_expression(self, face_image):
         # Use BLIP-2 for expression analysis
         inputs = self.processor(face_image, return_tensors="pt")
@@ -175,3 +198,5 @@ class PhotoScoringSystem:
         # Process output to get score
         # This is simplified - you'd need to parse the actual output
         return float(output[0].split()[0])
+    
+
