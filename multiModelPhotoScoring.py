@@ -21,11 +21,14 @@ class PhotoScore:
 class PhotoScoringSystem:
     def __init__(self):
         # Initialize vision-language model (e.g., BLIP-2)
-        self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        self.vlm = AutoModelForVision2Seq.from_pretrained("Salesforce/blip2-opt-2.7b")
+
+        # uncomment when on home WIFI - big download
+
+        # self.processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
+        # self.vlm = AutoModelForVision2Seq.from_pretrained("Salesforce/blip2-opt-2.7b")
         
         # Initialize face detection
-        self.face_detector = MTCNN(keep_all=True)
+        # self.face_detector = MTCNN(keep_all=True)
         
         # Technical quality assessment weights
         self.weights = {
@@ -117,18 +120,39 @@ class PhotoScoringSystem:
         ],
         )
 
-        print(response)
-        return response
-        
-        
-        # Simulated response structure
-        # return {
-        #     'technical': 8.5,
-        #     'composition': 7.5,
-        #     'expression': 9.0,
-        #     'overall': 8.3,
-        #     'explanation': "Strong technical quality with good lighting..."
-        # }
+        return response.choices[0].message.content
+    
+    def get_llm_analysis_multiple(self, image_urls, api_key):
+        """
+        Use GPT-4 Vision or similar to get qualitative analysis of multiple photos
+        """
+        prompt = f"""
+        Analyze these {len(image_urls)} photos and give me the index of the best two photos in number form, eg. 'photo 1' and 'photo 2'.
+        Provide a brief explanation on why you chose these as the best two.
+        """
+
+        from openai import OpenAI
+
+        client = OpenAI(
+            organization=os.environ.get("OPENAI_ORG_ID"),
+            project=os.environ.get("OPENAI_PROJECT_ID"),
+            api_key=api_key
+        )
+        content = [
+            {"type": "text", "text": prompt},
+            *self._generate_image_list(image_urls),
+        ]
+        response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+            "role": "user",
+            "content": content,
+            }
+        ],
+        )
+
+        return response.choices[0].message.content
 
     def score_photo(self, image_path, api_key):
         """
@@ -199,4 +223,14 @@ class PhotoScoringSystem:
         # This is simplified - you'd need to parse the actual output
         return float(output[0].split()[0])
     
+    def _generate_image_list(self, image_urls):
+        image_list = []
+        for image_url in image_urls:
+            image_list.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": image_url,
+                },
+            })
+        return image_list
 
